@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+<meta charset="UTF-8">
+<title>EpiPrishtina — Decision Support</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; display: flex; height: 100vh; }
+
+#sidebar { width: 480px; background: #1e293b; overflow-y: auto; padding: 20px; }
+#map { flex: 1; }
+
+h1 { font-size: 20px; margin-bottom: 4px; color: #fff; }
+.subtitle { font-size: 12px; color: #94a3b8; margin-bottom: 20px; }
+
+.step { background: #0f172a; border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 3px solid #334155; }
+.step.active { border-left-color: #3b82f6; }
+.step.done { border-left-color: #10b981; }
+
+.step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.step-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #cbd5e1; }
+.step-num { background: #334155; color: #94a3b8; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.step.done .step-num { background: #10b981; color: #fff; }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.stat { background: #1e293b; border-radius: 8px; padding: 10px; }
+.stat-label { font-size: 10px; color: #64748b; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: 700; color: #fff; margin-top: 2px; }
+.stat-value.warn { color: #f59e0b; }
+.stat-value.danger { color: #ef4444; }
+.stat-value.good { color: #10b981; }
+
+.btn { width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: all 0.15s; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover { background: #2563eb; }
+.btn-success { background: #10b981; color: white; }
+.btn-success:hover { background: #059669; }
+.btn-ghost { background: transparent; border: 1px solid #334155; color: #cbd5e1; }
+.btn-ghost:hover { background: #334155; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rec { background: #1e293b; border-radius: 8px; padding: 12px; margin-bottom: 8px; border: 1px solid #334155; }
+.rec.selected { border-color: #3b82f6; background: #1e3a5f; }
+.rec-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.rec-check { width: 16px; height: 16px; cursor: pointer; }
+.rec-title { font-size: 13px; font-weight: 600; color: #fff; flex: 1; }
+.rec-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #334155; color: #94a3b8; text-transform: uppercase; }
+.rec-desc { font-size: 11px; color: #94a3b8; line-height: 1.4; }
+.rec-impact { display: flex; gap: 12px; margin-top: 8px; font-size: 11px; }
+.rec-impact span { color: #94a3b8; }
+.rec-impact strong { color: #10b981; }
+
+.impact-summary { background: linear-gradient(135deg, #1e3a5f, #1e293b); border-radius: 12px; padding: 16px; margin-top: 12px; }
+.impact-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+.impact-row strong { color: #10b981; font-size: 14px; }
+
+.comparison-bar { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.comparison-fill { height: 100%; background: linear-gradient(90deg, #10b981, #3b82f6); transition: width 0.5s; }
+
+.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h1>EpiPrishtina</h1>
+    <div class="subtitle">Decision Support System</div>
+
+    <!-- STEP 1: State -->
+    <div class="step" id="step-1">
+        <div class="step-header">
+            <div class="step-title">1. Gjendja Aktuale</div>
+            <div class="step-num">1</div>
+        </div>
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="stat-label">Dita</div>
+                <div class="stat-value" id="s-day">—</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Aktivë</div>
+                <div class="stat-value warn" id="s-active">—</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">R(t)</div>
+                <div class="stat-value" id="s-rt">—</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Vdekje</div>
+                <div class="stat-value danger" id="s-deaths">—</div>
+            </div>
+        </div>
+        <button class="btn btn-ghost" onclick="loadState()">Rifresko</button>
+    </div>
+
+    <!-- STEP 2: Hotspots -->
+    <div class="step" id="step-2">
+        <div class="step-header">
+            <div class="step-title">2. Analiza ML</div>
+            <div class="step-num">2</div>
+        </div>
+        <div id="hotspots-list" style="font-size:12px; color:#94a3b8;">
+            Kliko "Analizo" për të rifreskuar hotspots.
+        </div>
+        <button class="btn btn-ghost" onclick="refreshHotspots()" id="btn-refresh">
+            <span id="refresh-text">Analizo</span>
+        </button>
+    </div>
+
+    <!-- STEP 3: Recommendations -->
+    <div class="step" id="step-3">
+        <div class="step-header">
+            <div class="step-title">3. Rekomandimet</div>
+            <div class="step-num">3</div>
+        </div>
+        <div id="recommendations-list">
+            <div style="font-size:12px; color:#94a3b8;">Kliko "Gjenero" për të marrë rekomandimet.</div>
+        </div>
+        <button class="btn btn-primary" onclick="generateRecommendations()" id="btn-generate">
+            <span id="generate-text">Gjenero Rekomandimet</span>
+        </button>
+    </div>
+
+    <!-- STEP 4: Apply -->
+    <div class="step" id="step-4">
+        <div class="step-header">
+            <div class="step-title">4. Vendimi</div>
+            <div class="step-num">4</div>
+        </div>
+        <div class="impact-summary" id="impact-summary" style="display:none;">
+            <div class="impact-row"><span>Raste të shmangura:</span><strong id="impact-cases">—</strong></div>
+            <div class="impact-row"><span>Vdekje të shmangura:</span><strong id="impact-deaths">—</strong></div>
+            <div class="impact-row"><span>Kosto totale:</span><strong id="impact-cost">—</strong></div>
+        </div>
+        <button class="btn btn-success" onclick="applySelected()" id="btn-apply" disabled>
+            <span id="apply-text">Apliko të Zgjedhurat</span>
+        </button>
+        <button class="btn btn-ghost" onclick="applyAll()" id="btn-apply-all" disabled>
+            Apliko të Gjitha
+        </button>
+    </div>
+
+    <!-- STEP 5: Compare -->
+    <div class="step" id="step-5">
+        <div class="step-header">
+            <div class="step-title">5. Efekti i Masave</div>
+            <div class="step-num">5</div>
+        </div>
+        <div id="comparison-view">
+            <div style="font-size:12px; color:#94a3b8;">Apliko masat për të parë efektin.</div>
+        </div>
+        <button class="btn btn-primary" onclick="simulateForward()" id="btn-simulate" disabled>
+            <span id="simulate-text">Simulo 30 Ditë Përpara</span>
+        </button>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = 'http://localhost:8000/api/v1';
+let currentBundle = null;
+let selectedIds = new Set();
+
+// Map setup
+const map = L.map('map').setView([42.6629, 21.1655], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+}).addTo(map);
+
+const hotspotLayer = L.layerGroup().addTo(map);
+const hospitalLayer = L.layerGroup().addTo(map);
+
+// Hospitals
+const hospitals = [
+    { name: "QKUK", lat: 42.6467, lon: 21.1653 },
+    { name: "Spitali i Prishtinës", lat: 42.6680, lon: 21.1580 },
+    { name: "Klinika Infektive", lat: 42.6447, lon: 21.1611 },
+    { name: "Klinika Pediatrike", lat: 42.6546, lon: 21.1714 },
+];
+
+hospitals.forEach(h => {
+    L.marker([h.lat, h.lon], {
+        icon: L.divIcon({
+            className: 'custom-marker',
+            html: '<div style="background:#ef4444;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+            iconSize: [20, 20]
+        })
+    }).bindPopup(`🏥 ${h.name}`).addTo(hospitalLayer);
+});
+
+// ═══ HELPERS ═══
+
+function setStepStatus(n, status) {
+    const el = document.getElementById(`step-${n}`);
+    el.classList.remove('active', 'done');
+    if (status) el.classList.add(status);
+}
+
+function setLoading(btnId, textId, loading, text) {
+    const btn = document.getElementById(btnId);
+    const txt = document.getElementById(textId);
+    btn.disabled = loading;
+    txt.innerHTML = loading ? '<span class="spinner"></span> ' + text : text;
+}
+
+// ═══ STEP 1: STATE ═══
+
+async function loadState() {
+    try {
+        const res = await fetch(`${API}/pipeline/state`, {
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        if (!res.ok) throw new Error('Failed');
+        const data = await res.json();
+        const s = data.simulation_state || {};
+        const active = (s.exposed||0) + (s.infectious_mild||0) + (s.infectious_severe||0);
+        document.getElementById('s-day').textContent = data.day;
+        document.getElementById('s-active').textContent = active.toLocaleString();
+        document.getElementById('s-rt').textContent = (0.32*7*(s.susceptible||0)/(s.population||22000)).toFixed(2);
+        document.getElementById('s-deaths').textContent = Math.round(s.dead||0).toLocaleString();
+        setStepStatus(1, 'done');
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// ═══ STEP 2: HOTSPOTS ═══
+
+async function refreshHotspots() {
+    setLoading('btn-refresh', 'refresh-text', true, 'Duke analizuar...');
+    setStepStatus(2, 'active');
+    try {
+        const res = await fetch(`${API}/pipeline/refresh`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        const data = await res.json();
+        renderHotspots(data.hotspots);
+        setStepStatus(2, 'done');
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setLoading('btn-refresh', 'refresh-text', false, 'Analizo');
+    }
+}
+
+function renderHotspots(hotspots) {
+    const el = document.getElementById('hotspots-list');
+    hotspotLayer.clearLayers();
+    if (!hotspots.length) {
+        el.innerHTML = '<div style="font-size:12px;color:#94a3b8;">Nuk ka hotspots.</div>';
+        return;
+    }
+    el.innerHTML = hotspots.slice(0, 5).map(h => `
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span>${h.district}</span>
+            <strong style="color:${h.hotspot_probability > 0.7 ? '#ef4444' : h.hotspot_probability > 0.5 ? '#f59e0b' : '#10b981'};">
+                ${(h.hotspot_probability * 100).toFixed(0)}%
+            </strong>
+        </div>
+    `).join('');
+
+    // Map circles
+    hotspots.forEach(h => {
+        const lat = h.lat || 42.6629;
+        const lon = h.lon || 21.1655;
+        const prob = h.hotspot_probability || 0;
+        if (prob > 0.3) {
+            const color = prob > 0.7 ? '#ef4444' : prob > 0.5 ? '#f59e0b' : '#10b981';
+            L.circle([lat, lon], {
+                radius: 800 + prob * 1500,
+                color: color, fillColor: color,
+                fillOpacity: prob * 0.4, weight: 2
+            }).bindPopup(`<b>${h.district}</b><br>Rrezik: ${(prob*100).toFixed(0)}%`).addTo(hotspotLayer);
+        }
+    });
+}
+
+// ═══ STEP 3: RECOMMENDATIONS ═══
+
+async function generateRecommendations() {
+    setLoading('btn-generate', 'generate-text', true, 'Duke gjeneruar...');
+    setStepStatus(3, 'active');
+    try {
+        const res = await fetch(`${API}/pipeline/recommend`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + getToken() }
+        });
+        const data = await res.json();
+        currentBundle = data;
+        renderRecommendations(data.recommendations);
+        renderImpact(data.total_expected_impact);
+        setStepStatus(3, 'done');
+        document.getElementById('btn-apply').disabled = false;
+        document.getElementById('btn-apply-all').disabled = false;
+        selectedIds = new Set(data.recommendations.map(r => r.id));
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setLoading('btn-generate', 'generate-text', false, 'Gjenero Rekomandimet');
+    }
+}
+
+function renderRecommendations(recs) {
+    const el = document.getElementById('recommendations-list');
+    el.innerHTML = recs.map(r => `
+        <div class="rec selected" data-id="${r.id}">
+            <div class="rec-header">
+                <input type="checkbox" class="rec-check" checked onchange="toggleRec('${r.id}', this.checked)">
+                <div class="rec-title">${r.title}</div>
+                <div class="rec-badge">${r.category}</div>
+            </div>
+            <div class="rec-desc">${r.description}</div>
+            <div class="rec-impact">
+                ${r.expected_impact.cases_avoided ? `<span>Raste: <strong>${r.expected_impact.cases_avoided}</strong></span>` : ''}
+                ${r.expected_impact.deaths_avoided ? `<span>Vdekje: <strong>${r.expected_impact.deaths_avoided}</strong></span>` : ''}
+                <span>Kosto: <strong>${r.expected_impact.cost.toFixed(2)}</strong></span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function toggleRec(id, checked) {
+    const el = document.querySelector(`.rec[data-id="${id}"]`);
+    if (checked) { selectedIds.add(id); el.classList.add('selected'); }
+    else { selectedIds.delete(id); el.classList.remove('selected'); }
+    updateImpactSummary();
+}
+
+function renderImpact(impact) {
+    document.getElementById('impact-summary').style.display = 'block';
+    document.getElementById('impact-cases').textContent = impact.cases_avoided.toLocaleString();
+    document.getElementById('impact-deaths').textContent = impact.deaths_avoided.toLocaleString();
+    document.getElementById('impact-cost').textContent = impact.total_cost.toFixed(2);
+}
+
+function updateImpactSummary() {
+    if (!currentBundle) return;
+    let cases = 0, deaths = 0, cost = 0;
+    currentBundle.recommendations.forEach(r => {
+        if (selectedIds.has(r.id)) {
+            cases += r.expected_impact.cases_avoided || 0;
+            deaths += r.expected_impact.deaths_avoided || 0;
+            cost += r.expected_impact.cost || 0;
+        }
+    });
+    document.getElementById('impact-cases').textContent = cases.toLocaleString();
+    document.getElementById('impact-deaths').textContent = deaths.toLocaleString();
+    document.getElementById('impact-cost').textContent = cost.toFixed(2);
+}
+
+// ═══ STEP 4: APPLY ═══
+
+async function applySelected() {
+    await apply(Array.from(selectedIds));
+}
+
+async function applyAll() {
+    await apply(null);
+}
+
+async function apply(ids) {
+    setLoading('btn-apply', 'apply-text', true, 'Duke aplikuar...');
+    setStepStatus(4, 'active');
+    try {
+        const res = await fetch(`${API}/pipeline/apply`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + getToken(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ selected_ids: ids, days_ahead: 30 })
+        });
+        const data = await res.json();
+        setStepStatus(4, 'done');
+        document.getElementById('btn-simulate').disabled = false;
+        alert(`U aplikuan ${data.applied_count} rekomandime.`);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setLoading('btn-apply', 'apply-text', false, 'Apliko të Zgjedhurat');
+    }
+}
+
+// ═══ STEP 5: SIMULATE ═══
+
+async function simulateForward() {
+    setLoading('btn-simulate', 'simulate-text', true, 'Duke simuluar...');
+    setStepStatus(5, 'active');
+    try {
+        const res = await fetch(`${API}/pipeline/simulate`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + getToken(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ days_ahead: 30 })
+        });
+        const data = await res.json();
+        renderComparison(data);
+        setStepStatus(5, 'done');
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setLoading('btn-simulate', 'simulate-text', false, 'Simulo 30 Ditë Përpara');
+    }
+}
+
+function renderComparison(data) {
+    const c = data.comparison;
+    const b = data.baseline;
+    const w = data.with_measures;
+    const reduction = b.new_cases > 0 ? (c.cases_avoided / b.new_cases * 100) : 0;
+    document.getElementById('comparison-view').innerHTML = `
+        <div style="font-size:12px;">
+            <div class="impact-row"><span>Pa masa:</span><strong style="color:#ef4444;">${b.new_cases.toLocaleString()}</strong></div>
+            <div class="impact-row"><span>Me masa:</span><strong style="color:#10b981;">${w.new_cases.toLocaleString()}</strong></div>
+            <div class="comparison-bar"><div class="comparison-fill" style="width:${reduction}%"></div></div>
+            <div class="impact-row" style="margin-top:8px;"><span>Reduktim:</span><strong>${reduction.toFixed(1)}%</strong></div>
+            <div class="impact-row"><span>Pik:</span><strong>${b.peak_active.toLocaleString()} → ${w.peak_active.toLocaleString()}</strong></div>
+            <div class="impact-row"><span>R(t):</span><strong>${b.rt_at_end.toFixed(2)} → ${w.rt_at_end.toFixed(2)}</strong></div>
+        </div>
+    `;
+}
+
+// ═══ AUTH ═══
+
+function getToken() {
+    return localStorage.getItem('token') || prompt('JWT Token:');
+}
+
+// Init
+loadState();
+</script>
+</body>
+</html>

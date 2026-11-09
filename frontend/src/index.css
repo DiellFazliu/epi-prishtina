@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@theme {
+  --color-epi-dark: #0a0e27;
+  --color-epi-card: #131938;
+  --color-epi-border: #1e2655;
+  --color-epi-cyan: #00d4ff;
+  --color-epi-purple: #7b2ff7;
+  --color-epi-critical: #ff4757;
+  --color-epi-high: #ff6348;
+  --color-epi-medium: #ffa502;
+  --color-epi-low: #2ed573;
+}
+
+/* Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0a0e27;
+  color: #e8eaf6;
+  min-height: 100vh;
+}
+
+.dashboard-map-grid { grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); }
+.dashboard-map-card, .dashboard-map-canvas { min-width: 0; }
+@media (max-width: 1100px) {
+  .dashboard-map-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Komponentët */
+.btn-primary {
+  background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+  color: white;
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  font-size: 0.875rem;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #131938;
+  border: 1px solid #1e2655;
+  color: #00d4ff;
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #1e2655;
+}
+
+.input-field {
+  width: 100%;
+  background: #0a0e27;
+  border: 1px solid #1e2655;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  color: white;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.input-field::placeholder {
+  color: #6b7280;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #00d4ff;
+}
+
+.card {
+  background: #131938;
+  border: 1px solid #1e2655;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.stat-card {
+  background: #131938;
+  border: 1px solid #1e2655;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  transition: border-color 0.2s;
+}
+
+.stat-card:hover {
+  border-color: #00d4ff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f1429;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e2655;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3570;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

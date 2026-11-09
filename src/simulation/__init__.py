@@ -1,0 +1,1 @@
+"""Moduli i simulimit epidemiologjik."""

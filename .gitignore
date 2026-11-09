@@ -1,0 +1,28 @@
+# Secrets and local environment
+.env*
+!.env.example
+login.json
+*.pem
+*.key
+docker-compose.override.yml
+docker-compose.override.yml.example
+docker-secrets.env
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Generated runtime data
+cache/
+data/cache/
+data/processed/*
+!data/processed/.gitkeep
+logs/
+celerybeat-schedule*
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

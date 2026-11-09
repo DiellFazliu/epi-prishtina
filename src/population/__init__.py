@@ -1,0 +1,1 @@
+"""Moduli i gjenerimit të popullsisë sintetike."""

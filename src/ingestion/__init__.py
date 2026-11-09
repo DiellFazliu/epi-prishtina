@@ -1,0 +1,1 @@
+"""Moduli i marrjes së të dhënave."""
